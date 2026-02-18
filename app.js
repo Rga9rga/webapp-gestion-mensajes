@@ -12,22 +12,30 @@ async function connectWithRetry() {
   const maxRetries = 10;
   for (let i = 1; i <= maxRetries; i++) {
     try {
-      pool = mysql.createPool({
-        host: process.env.MYSQLHOST,
-        user: process.env.MYSQLUSER,
-        password: process.env.MYSQLPASSWORD,
-        database: process.env.MYSQLDATABASE,
-        port: Number(process.env.MYSQLPORT),
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0
-      });
+      const dbUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
+
+      if (dbUrl) {
+        console.log('Conectando con MYSQL_URL...');
+        pool = mysql.createPool(dbUrl);
+      } else {
+        console.log('Conectando con variables individuales...');
+        console.log('MYSQLHOST:', process.env.MYSQLHOST || '(no definida)');
+        pool = mysql.createPool({
+          host: process.env.MYSQLHOST,
+          user: process.env.MYSQLUSER,
+          password: process.env.MYSQLPASSWORD,
+          database: process.env.MYSQLDATABASE,
+          port: Number(process.env.MYSQLPORT || 3306),
+          waitForConnections: true,
+          connectionLimit: 10,
+          queueLimit: 0
+        });
+      }
 
       const conn = await pool.getConnection();
       conn.release();
       console.log('Conectado a MySQL correctamente');
 
-      // Crear tabla
       await pool.query(`
         CREATE TABLE IF NOT EXISTS mensajes (
           id INT AUTO_INCREMENT PRIMARY KEY,
