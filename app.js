@@ -7,19 +7,24 @@ const PORT = process.env.PORT || 3000;
 
 let pool;
 let dbReady = false;
+let lastError = 'Sin intentos aún';
 
 async function connectWithRetry() {
-  const maxRetries = 10;
-  for (let i = 1; i <= maxRetries; i++) {
+  let attempt = 0;
+  while (!dbReady) {
+    attempt++;
     try {
       const dbUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
 
       if (dbUrl) {
-        console.log('Conectando con MYSQL_URL...');
+        console.log(`Intento ${attempt} - Conectando con MYSQL_URL...`);
         pool = mysql.createPool(dbUrl);
       } else {
-        console.log('Conectando con variables individuales...');
+        console.log(`Intento ${attempt} - Conectando con variables individuales...`);
         console.log('MYSQLHOST:', process.env.MYSQLHOST || '(no definida)');
+        console.log('MYSQLUSER:', process.env.MYSQLUSER || '(no definida)');
+        console.log('MYSQLDATABASE:', process.env.MYSQLDATABASE || '(no definida)');
+        console.log('MYSQLPORT:', process.env.MYSQLPORT || '(no definida)');
         pool = mysql.createPool({
           host: process.env.MYSQLHOST,
           user: process.env.MYSQLUSER,
@@ -46,24 +51,40 @@ async function connectWithRetry() {
       `);
 
       dbReady = true;
+      lastError = null;
+      console.log('Tabla "mensajes" lista');
       return;
     } catch (err) {
-      console.log(`Intento ${i}/${maxRetries} - Error conectando a MySQL:`, err.message);
-      if (i < maxRetries) {
-        await new Promise(r => setTimeout(r, 5000));
-      }
+      lastError = err.message;
+      console.log(`Intento ${attempt} - Error: ${err.message}`);
+      await new Promise(r => setTimeout(r, 5000));
     }
   }
-  console.error('No se pudo conectar a MySQL tras varios intentos');
 }
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
+// Endpoint de debug para ver estado de conexión
+app.get('/debug', (req, res) => {
+  res.json({
+    dbReady,
+    lastError,
+    env: {
+      MYSQL_URL: process.env.MYSQL_URL ? '✅ definida' : '❌ no definida',
+      DATABASE_URL: process.env.DATABASE_URL ? '✅ definida' : '❌ no definida',
+      MYSQLHOST: process.env.MYSQLHOST || '❌ no definida',
+      MYSQLUSER: process.env.MYSQLUSER || '❌ no definida',
+      MYSQLDATABASE: process.env.MYSQLDATABASE || '❌ no definida',
+      MYSQLPORT: process.env.MYSQLPORT || '❌ no definida',
+      PORT: process.env.PORT || '3000 (default)'
+    }
+  });
+});
+
 // Arrancar servidor PRIMERO (para que el healthcheck pase)
 app.listen(PORT, () => {
   console.log(`Servidor en puerto ${PORT}`);
-  // Luego conectar a MySQL en segundo plano
   connectWithRetry();
 });
 
