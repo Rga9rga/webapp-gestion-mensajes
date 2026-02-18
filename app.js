@@ -14,28 +14,17 @@ async function connectWithRetry() {
   while (!dbReady) {
     attempt++;
     try {
-      const dbUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
-
-      if (dbUrl) {
-        console.log(`Intento ${attempt} - Conectando con MYSQL_URL...`);
-        pool = mysql.createPool(dbUrl);
-      } else {
-        console.log(`Intento ${attempt} - Conectando con variables individuales...`);
-        console.log('MYSQLHOST:', process.env.MYSQLHOST || '(no definida)');
-        console.log('MYSQLUSER:', process.env.MYSQLUSER || '(no definida)');
-        console.log('MYSQLDATABASE:', process.env.MYSQLDATABASE || '(no definida)');
-        console.log('MYSQLPORT:', process.env.MYSQLPORT || '(no definida)');
-        pool = mysql.createPool({
-          host: process.env.MYSQLHOST,
-          user: process.env.MYSQLUSER,
-          password: process.env.MYSQLPASSWORD,
-          database: process.env.MYSQLDATABASE,
-          port: Number(process.env.MYSQLPORT || 3306),
-          waitForConnections: true,
-          connectionLimit: 10,
-          queueLimit: 0
-        });
-      }
+      console.log(`Intento ${attempt} - Conectando a MySQL...`);
+      pool = mysql.createPool({
+        host: process.env.MYSQLHOST,
+        user: process.env.MYSQLUSER,
+        password: process.env.MYSQLPASSWORD,
+        database: process.env.MYSQLDATABASE,
+        port: Number(process.env.MYSQLPORT || 3306),
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0
+      });
 
       const conn = await pool.getConnection();
       conn.release();
