@@ -71,7 +71,7 @@ app.get('/debug', (req, res) => {
     dbReady,
     lastError,
     env: {
-      MYSQL_URL: process.env.MYSQL_URL ? '✅ definida' : '❌ no definida',
+      MYSQL_URL: process.env.MYSQL_URL ? '✅ ' + process.env.MYSQL_URL.substring(0, 30) + '...' : '❌ no definida',
       DATABASE_URL: process.env.DATABASE_URL ? '✅ definida' : '❌ no definida',
       MYSQLHOST: process.env.MYSQLHOST || '❌ no definida',
       MYSQLUSER: process.env.MYSQLUSER || '❌ no definida',
