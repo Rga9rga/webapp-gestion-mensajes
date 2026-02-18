@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mensajes guardados</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>📬 Mensajes guardados</h1>
+  <div id="contenedor"></div>
+  <p><a href="/">Volver al formulario</a></p>
+  <script>
+    fetch('/mensajes')
+      .then(res => res.text())
+      .then(html => document.body.innerHTML = html);
+  </script>
+</body>
+</html>

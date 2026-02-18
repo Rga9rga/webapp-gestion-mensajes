@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Enviar mensaje</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>💬 Enviar un mensaje</h1>
+  <form action="/enviar" method="POST">
+    <input type="text" name="nombre" placeholder="Tu nombre" required /><br>
+    <textarea name="mensaje" placeholder="Escribe tu mensaje..." required></textarea><br>
+    <button type="submit">Enviar</button>
+  </form>
+  <p><a href="/mensajes">Ver mensajes guardados</a></p>
+</body>
+</html>
