@@ -6,53 +6,61 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 let pool;
+let dbReady = false;
 
-async function createPool() {
-  pool = mysql.createPool({
-    host: process.env.MYSQLHOST,
-    user: process.env.MYSQLUSER,
-    password: process.env.MYSQLPASSWORD,
-    database: process.env.MYSQLDATABASE,
-    port: Number(process.env.MYSQLPORT),
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-  });
+async function connectWithRetry() {
+  const maxRetries = 10;
+  for (let i = 1; i <= maxRetries; i++) {
+    try {
+      pool = mysql.createPool({
+        host: process.env.MYSQLHOST,
+        user: process.env.MYSQLUSER,
+        password: process.env.MYSQLPASSWORD,
+        database: process.env.MYSQLDATABASE,
+        port: Number(process.env.MYSQLPORT),
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0
+      });
 
-  // Prueba de conexión
-  const conn = await pool.getConnection();
-  conn.release();
-  console.log('Conectado a MySQL correctamente');
-}
+      const conn = await pool.getConnection();
+      conn.release();
+      console.log('Conectado a MySQL correctamente');
 
-async function ensureDB() {
-  // SOLO crear la tabla, NO la base de datos
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS mensajes (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      nombre VARCHAR(50),
-      mensaje TEXT,
-      fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-  await pool.query(createTableQuery);
+      // Crear tabla
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS mensajes (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          nombre VARCHAR(50),
+          mensaje TEXT,
+          fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      dbReady = true;
+      return;
+    } catch (err) {
+      console.log(`Intento ${i}/${maxRetries} - Error conectando a MySQL:`, err.message);
+      if (i < maxRetries) {
+        await new Promise(r => setTimeout(r, 5000));
+      }
+    }
+  }
+  console.error('No se pudo conectar a MySQL tras varios intentos');
 }
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-(async () => {
-  try {
-    await createPool();
-    await ensureDB();
-    app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
-  } catch (err) {
-    console.error('Error al conectar con MySQL:', err);
-    process.exit(1);
-  }
-})();
+// Arrancar servidor PRIMERO (para que el healthcheck pase)
+app.listen(PORT, () => {
+  console.log(`Servidor en puerto ${PORT}`);
+  // Luego conectar a MySQL en segundo plano
+  connectWithRetry();
+});
 
 app.post('/enviar', async (req, res) => {
+  if (!dbReady) return res.status(503).send('Base de datos no disponible todavía. Inténtalo en unos segundos.');
   const { nombre, mensaje } = req.body;
   if (!nombre || !mensaje) {
     return res.status(400).send('Faltan campos obligatorios.');
@@ -71,6 +79,7 @@ app.post('/enviar', async (req, res) => {
 });
 
 app.get('/mensajes', async (req, res) => {
+  if (!dbReady) return res.status(503).send('Base de datos no disponible todavía. Inténtalo en unos segundos.');
   try {
     const [results] = await pool.query(
       'SELECT * FROM mensajes ORDER BY fecha DESC'
